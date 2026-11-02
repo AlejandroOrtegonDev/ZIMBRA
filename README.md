@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Sistema de Gestión Comercial Zimbra
 
 Aplicación web académica para registrar prospectos, darles seguimiento comercial y consultar la actividad de ventas. Está inspirada en el caso de estudio de Zimbra. No replica el software original ni su arquitectura interna.
@@ -103,3 +104,6 @@ Invoke-RestMethod http://localhost:3001/api/estado
 ```
 
 La respuesta esperada es un objeto con `ok: true` y el mensaje del servidor.
+=======
+# ZIMBRA
+>>>>>>> 63a21c946fa6fdf6d1d6b188be5ffda3e10a20ce
