@@ -1,0 +1,29 @@
+.panel {
+  margin: auto;
+  padding: 64px 24px;
+  max-width: 680px;
+}
+
+.etiqueta {
+  margin-bottom: 8px;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.estado {
+  margin-top: 28px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code-bg);
+}
+
+.ok {
+  color: var(--text-h);
+}
+
+.error {
+  color: #b42318;
+}
