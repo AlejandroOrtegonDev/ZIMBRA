@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Sistema de Gestión Comercial Zimbra
 
 Aplicación web académica para registrar prospectos, darles seguimiento comercial y consultar la actividad de ventas. Está inspirada en el caso de estudio de Zimbra. No replica el software original ni su arquitectura interna.
