@@ -1,9 +1,8 @@
-//este archivo crea la configuración de la base de datos
+// Configuración del pool de conexiones a MySQL
 
 import './env.js'
 import mysql from 'mysql2/promise'
 
-//crea el pool de conexiones
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT) || 3306,
@@ -15,10 +14,19 @@ const pool = mysql.createPool({
   queueLimit: 0,
 })
 
-//hace una consulta a la base de datos para comprobar si está conectada
+// Comprueba que la base de datos responde
 export async function comprobarConexion() {
   const [filas] = await pool.query('SELECT 1 AS ok')
   return filas[0]
+}
+
+export async function listarTablas() {
+  const [tablas] = await pool.query('SHOW TABLES')
+  return tablas
+}
+
+export async function cerrarPool() {
+  await pool.end()
 }
 
 export default pool
