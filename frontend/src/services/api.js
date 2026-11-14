@@ -18,3 +18,7 @@ export function obtenerEstado() {
 export function obtenerBaseDatos() {
   return consultar('/api/db')
 }
+
+export function obtenerClientes() {
+  return consultar('/api/clientes')
+} 

@@ -2,12 +2,14 @@ import express from 'express'
 import cors from 'cors'
 import pool from './config/database.js';
 import mysql from 'mysql2/promise'
+import apiRouter from './api/api.js'
 import { comprobarConexion } from './config/database.js'
 
 const app = express()
 
 app.use(cors({ origin: 'http://localhost:5173' }))
 app.use(express.json())
+app.use(apiRouter)
 
 
 app.get('/', async (req, res) => {

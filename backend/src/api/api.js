@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import pool from '../config/database.js';
 import { comprobarConexion } from '../config/database.js';
+import {obtenerClientes} from '../repositories/select_client.js'; 
 
 const router = Router();
 
@@ -27,4 +28,20 @@ router.get('/api/db', async (req, res) => {
     }
 });
 
-export default router;
+router.get('/api/clients', async (req, res) => {
+    try {
+        await obtenerClientes();
+        res.json({
+            ok: true,
+            mensaje: 'clientes'
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            ok: false,
+            mensaje: 'No se pudo conectar con la base de datos'
+        });
+    }
+}); 
+
+export default router; 
