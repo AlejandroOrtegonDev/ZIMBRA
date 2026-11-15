@@ -12,9 +12,6 @@ export const SignupCardCombined = () => {
         <section className="registro">
             <div className="registro-tarjeta">
                 <div className="registro-encabezado">
-                    <span className="registro-logo" aria-hidden="true">
-                        Z
-                    </span>
                     <div className="registro-titulos">
                         <h1>Start your free trial</h1>
                         <p>Sign up in less than 2 minutes.</p>
