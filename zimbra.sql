@@ -315,12 +315,13 @@ CREATE TABLE pagos (
 
 CREATE TABLE actividad_web (
     id_actividad INT AUTO_INCREMENT PRIMARY KEY,
-    id_usuario INT NOT NULL,
+    id_usuario INT,              -- NULL si el visitante es anónimo
     id_cliente INT,
     accion VARCHAR(100),
     descripcion TEXT,
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario),
+    -- SET NULL: el historial de actividad sobrevive si se borra el usuario
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
     FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente)
 ) ;
 
@@ -417,7 +418,8 @@ CREATE TABLE auditoria (
     registro_id INT,
     descripcion TEXT,
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+    -- SET NULL: la auditoría no se pierde si se borra el usuario
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE SET NULL
 ) ;
 
 -- 15. CONFIGURACION DE USUARIOS
@@ -773,63 +775,9 @@ INSERT INTO auditoria (id_auditoria, id_usuario, tabla_afectada, operacion, regi
 (8, 1, 'usuarios',      'UPDATE', 5, 'Se desactivó el usuario Sofía Torres.',               '2026-11-03 09:30:00');
 
 -- ============================================================
--- PARTE 3. VISTAS LEGIBLES DE ROLES Y PERMISOS
--- Las tablas puente (roles_permisos, usuarios_roles) solo guardan
--- ids. Estas vistas muestran los nombres y qué puede hacer cada rol.
--- ============================================================
-
--- Qué permisos tiene cada rol y qué permite cada uno
-CREATE VIEW vista_roles_permisos AS
-SELECT r.id_rol,
-       r.nombre              AS rol,
-       p.id_permiso,
-       p.nombre              AS permiso,
-       p.descripcion         AS que_puede_hacer
-FROM roles_permisos rp
-JOIN roles r   ON r.id_rol = rp.id_rol
-JOIN permisos p ON p.id_permiso = rp.id_permiso ;
-
--- Qué rol tiene cada usuario
-CREATE VIEW vista_usuarios_roles AS
-SELECT u.id_usuario,
-       u.nombre    AS usuario,
-       u.correo,
-       u.estado,
-       r.nombre    AS rol,
-       r.descripcion AS descripcion_rol
-FROM usuarios u
-JOIN usuarios_roles ur ON ur.id_usuario = u.id_usuario
-JOIN roles r           ON r.id_rol = ur.id_rol ;
-
--- Resumen: cuántos usuarios y cuántos permisos tiene cada rol
-CREATE VIEW vista_resumen_roles AS
-SELECT r.id_rol,
-       r.nombre    AS rol,
-       r.descripcion,
-       COUNT(DISTINCT ur.id_usuario)  AS usuarios,
-       COUNT(DISTINCT rp.id_permiso)  AS permisos
-FROM roles r
-LEFT JOIN usuarios_roles ur ON ur.id_rol = r.id_rol
-LEFT JOIN roles_permisos rp ON rp.id_rol = r.id_rol
-GROUP BY r.id_rol, r.nombre, r.descripcion ;
-
--- Matriz de permisos: una fila por permiso y una columna por rol.
--- Responde de un vistazo "quién puede hacer qué".
-CREATE VIEW matriz_permisos AS
-SELECT p.id_permiso,
-       p.nombre                     AS permiso,
-       p.descripcion                AS que_puede_hacer,
-       MAX(CASE WHEN r.nombre = 'admin'     THEN 'SI' ELSE '-' END) AS admin,
-       MAX(CASE WHEN r.nombre = 'user'      THEN 'SI' ELSE '-' END) AS user,
-       MAX(CASE WHEN r.nombre = 'user_demo' THEN 'SI' ELSE '-' END) AS user_demo
-FROM permisos p
-LEFT JOIN roles_permisos rp ON rp.id_permiso = p.id_permiso
-LEFT JOIN roles r           ON r.id_rol = rp.id_rol
-GROUP BY p.id_permiso, p.nombre, p.descripcion
-ORDER BY p.id_permiso ;
-
--- ============================================================
--- PARTE 4. VERIFICACIÓN
+-- PARTE 3. VERIFICACIÓN
+-- Sin vistas: las tablas puente (roles_permisos, usuarios_roles)
+-- se consultan directamente con JOIN.
 -- ============================================================
 
 SELECT 'usuarios' AS tabla, COUNT(*) AS registros FROM usuarios
@@ -851,18 +799,497 @@ UNION ALL SELECT 'correos', COUNT(*) FROM correos
 UNION ALL SELECT 'reportes_generados', COUNT(*) FROM reportes_generados
 UNION ALL SELECT 'auditoria', COUNT(*) FROM auditoria;
 
--- Roles con su descripción y cuánto alcanza cada uno
-SELECT * FROM vista_resumen_roles;
+-- Roles con su descripción y cuántos usuarios y permisos alcanza cada uno
+SELECT r.id_rol,
+       r.nombre      AS rol,
+       r.descripcion,
+       COUNT(DISTINCT ur.id_usuario) AS usuarios,
+       COUNT(DISTINCT rp.id_permiso) AS permisos
+FROM roles r
+LEFT JOIN usuarios_roles ur ON ur.id_rol = r.id_rol
+LEFT JOIN roles_permisos rp ON rp.id_rol = r.id_rol
+GROUP BY r.id_rol, r.nombre, r.descripcion
+ORDER BY r.id_rol;
 
--- Detalle de permisos por rol (esto reemplaza "SELECT * FROM roles_permisos")
-SELECT rol, permiso, que_puede_hacer
-FROM vista_roles_permisos
-ORDER BY id_rol, id_permiso;
+-- Detalle de permisos por rol
+SELECT r.nombre      AS rol,
+       p.nombre      AS permiso,
+       p.descripcion AS que_puede_hacer
+FROM roles_permisos rp
+JOIN roles r    ON r.id_rol = rp.id_rol
+JOIN permisos p ON p.id_permiso = rp.id_permiso
+ORDER BY rp.id_rol, rp.id_permiso;
 
--- Usuarios y su rol (esto reemplaza "SELECT * FROM usuarios_roles")
-SELECT usuario, correo, rol, estado
-FROM vista_usuarios_roles
-ORDER BY id_usuario;
+-- Usuarios y su rol
+SELECT u.id_usuario, u.nombre AS usuario, u.correo, u.estado, r.nombre AS rol
+FROM usuarios u
+JOIN usuarios_roles ur ON ur.id_usuario = u.id_usuario
+JOIN roles r           ON r.id_rol = ur.id_rol
+ORDER BY u.id_usuario;
 
--- Matriz: qué puede hacer cada rol
-SELECT * FROM matriz_permisos;
+-- Matriz: qué puede hacer cada rol de un vistazo
+SELECT p.nombre      AS permiso,
+       p.descripcion AS que_puede_hacer,
+       MAX(CASE WHEN r.nombre = 'admin'     THEN 'SI' ELSE '-' END) AS admin,
+       MAX(CASE WHEN r.nombre = 'user'      THEN 'SI' ELSE '-' END) AS user,
+       MAX(CASE WHEN r.nombre = 'user_demo' THEN 'SI' ELSE '-' END) AS user_demo
+FROM permisos p
+LEFT JOIN roles_permisos rp ON rp.id_permiso = p.id_permiso
+LEFT JOIN roles r           ON r.id_rol = rp.id_rol
+GROUP BY p.id_permiso, p.nombre, p.descripcion
+ORDER BY p.id_permiso;
+
+
+
+
+
+
+-- transacciones 
+
+
+
+
+-- 2. ROLLBACK: se cancela todo lo hecho dentro de la transacción
+START TRANSACTION;
+
+-- Bajamos el stock del producto 1
+UPDATE productos SET stock = stock - 50 WHERE id_producto = 1;
+
+-- Vemos el cambio (todavía no es definitivo)
+SELECT id_producto, nombre, stock FROM productos WHERE id_producto = 1;
+
+-- Nos arrepentimos: se devuelve todo
+ROLLBACK;
+
+SELECT id_producto, nombre, stock FROM productos WHERE id_producto = 1;  -- vuelve al valor original
+
+
+-- 3. SAVEPOINT: deshacer solo una parte
+START TRANSACTION;
+
+-- Venta nueva para el cliente 3
+INSERT INTO ventas (id_cliente, id_vendedor, total, estado)
+VALUES (3, 2, 0, 'pendiente');
+SET @id_venta = LAST_INSERT_ID();
+
+-- Primer producto
+INSERT INTO ventas_productos (id_venta, id_producto, cantidad, precio_unitario, subtotal)
+VALUES (@id_venta, 1, 2, 45000, 90000);
+
+SAVEPOINT despues_producto1;
+
+-- Segundo producto
+INSERT INTO ventas_productos (id_venta, id_producto, cantidad, precio_unitario, subtotal)
+VALUES (@id_venta, 4, 2, 25000, 50000);
+
+-- El cliente no quiere el segundo producto: solo se deshace ese
+ROLLBACK TO despues_producto1;
+
+-- Total final con lo que quedó
+UPDATE ventas SET total = 90000 WHERE id_venta = @id_venta;
+
+COMMIT;
+
+SELECT * FROM ventas_productos WHERE id_venta = @id_venta;   -- solo el producto 1
+
+
+-- 4. PROCEDIMIENTO con transacción (como procesar_pago de TravelNow)
+DELIMITER //
+CREATE PROCEDURE procesar_pago_venta(
+    IN p_id_venta INT,
+    IN p_metodo VARCHAR(50)
+)
+BEGIN
+    DECLARE v_total DECIMAL(12,2);
+
+    -- Si algo falla, se deshace todo y se muestra el error
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    -- Consultamos el total de la venta
+    SELECT total INTO v_total
+    FROM ventas
+    WHERE id_venta = p_id_venta AND estado = 'pendiente';
+
+    -- Si no existe o ya está pagada, cancelamos
+    IF v_total IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'La venta no existe o no esta pendiente';
+    END IF;
+
+    -- Registramos el pago
+    INSERT INTO pagos (id_venta, metodo_pago, valor, estado)
+    VALUES (p_id_venta, p_metodo, v_total, 'aprobado');
+
+    -- Actualizamos el estado de la venta
+    UPDATE ventas SET estado = 'pagada' WHERE id_venta = p_id_venta;
+
+    COMMIT;
+END //
+DELIMITER ;
+
+-- Ejecutamos el proceso (venta 2: Tecnología Andina)
+CALL procesar_pago_venta(2, 'transferencia');
+
+SELECT * FROM ventas WHERE id_venta = 2;
+
+-- Esta falla a propósito (la venta 2 ya está pagada) y hace ROLLBACK
+-- CALL procesar_pago_venta(2, 'transferencia');
+
+
+-- ============================================================
+-- PARTE 5. TRIGGERS, EVENTO Y CLASIFICACIÓN DE CLIENTES
+-- 5.1  Puntaje de cada acción (función)
+-- 5.2  Triggers que registran la actividad del cliente en actividad_web
+-- 5.3  Procedimiento y EVENTO que clasifican a los clientes potenciales
+-- 5.4  Auditoría automática de las tablas comerciales
+--
+-- Van al final a propósito: así no se disparan durante los datos de prueba.
+-- ============================================================
+
+DELIMITER //
+
+-- ------------------------------------------------------------
+-- 5.1 Puntaje de cada acción
+-- ------------------------------------------------------------
+
+-- Puntos que aporta cada acción. Si cambian los pesos, se cambian solo aquí.
+CREATE FUNCTION fn_puntos_accion(p_accion VARCHAR(100))
+RETURNS INT
+DETERMINISTIC
+RETURN CASE LOWER(TRIM(COALESCE(p_accion, '')))
+    WHEN 'visita'             THEN 1
+    WHEN 'correo'             THEN 2
+    WHEN 'descarga'           THEN 3
+    WHEN 'llamada'            THEN 3
+    WHEN 'reunion'            THEN 5
+    WHEN 'seguimiento'        THEN 3
+    WHEN 'webinar'            THEN 5
+    WHEN 'propuesta'          THEN 8
+    WHEN 'pago'               THEN 8
+    WHEN 'formulario'         THEN 10
+    WHEN 'demo'               THEN 10
+    WHEN 'prueba'             THEN 10
+    WHEN 'propuesta_aceptada' THEN 10
+    WHEN 'compra'             THEN 20
+    ELSE 1
+END //
+
+-- ------------------------------------------------------------
+-- 5.2 Actividad del cliente
+-- Cada trigger traduce un hecho del CRM a una fila de actividad_web.
+-- Solo se registra en INSERT (o en un cambio de estado concreto), así
+-- que un mismo hecho nunca genera dos filas.
+-- ------------------------------------------------------------
+
+-- Respuesta del cliente a una campaña (formulario, correo, webinar...)
+CREATE TRIGGER trg_campanas_interacciones_actividad
+AFTER INSERT ON campanas_interacciones
+FOR EACH ROW
+INSERT INTO actividad_web (id_cliente, accion, descripcion)
+VALUES (
+    NEW.id_cliente,
+    COALESCE(NEW.tipo, 'campana'),
+    CONCAT('Campaña #', NEW.id_campana, ': ',
+           COALESCE(NEW.resultado, 'interacción registrada'))
+) //
+
+-- Seguimiento comercial sobre una oportunidad del cliente
+CREATE TRIGGER trg_seguimientos_actividad
+AFTER INSERT ON seguimientos
+FOR EACH ROW
+INSERT INTO actividad_web (id_cliente, accion, descripcion)
+SELECT o.id_cliente,
+       COALESCE(NEW.tipo, 'seguimiento'),
+       CONCAT('Seguimiento #', NEW.id_seguimiento, ': ',
+              COALESCE(NEW.descripcion, 'contacto con el cliente'))
+FROM oportunidades o
+WHERE o.id_oportunidad = NEW.id_oportunidad //
+
+-- Propuesta que nace ya enviada o aceptada (si es borrador no cuenta)
+CREATE TRIGGER trg_propuestas_actividad
+AFTER INSERT ON propuestas
+FOR EACH ROW
+INSERT INTO actividad_web (id_cliente, accion, descripcion)
+SELECT o.id_cliente,
+       'propuesta',
+       CONCAT('Propuesta #', NEW.id_propuesta, ' registrada (', NEW.estado, ')')
+FROM oportunidades o
+WHERE o.id_oportunidad = NEW.id_oportunidad
+  AND NEW.estado <> 'borrador' //
+
+-- Propuesta que pasa a enviada o aceptada. Solo se registra el cambio
+-- de estado, no cada actualización de la fila.
+CREATE TRIGGER trg_propuestas_estado_actividad
+AFTER UPDATE ON propuestas
+FOR EACH ROW
+INSERT INTO actividad_web (id_cliente, accion, descripcion)
+SELECT o.id_cliente,
+       IF(NEW.estado = 'aceptada', 'propuesta_aceptada', 'propuesta'),
+       CONCAT('Propuesta #', NEW.id_propuesta, ' -> ', NEW.estado)
+FROM oportunidades o
+WHERE o.id_oportunidad = NEW.id_oportunidad
+  AND NEW.estado IN ('enviada', 'aceptada')
+  AND NEW.estado <> OLD.estado //
+
+-- Venta registrada a nombre del cliente
+CREATE TRIGGER trg_ventas_actividad
+AFTER INSERT ON ventas
+FOR EACH ROW
+INSERT INTO actividad_web (id_cliente, accion, descripcion)
+VALUES (NEW.id_cliente, 'compra',
+        CONCAT('Venta #', NEW.id_venta, ' por ', FORMAT(NEW.total, 2))) //
+
+-- Pago registrado sobre una venta del cliente
+CREATE TRIGGER trg_pagos_actividad
+AFTER INSERT ON pagos
+FOR EACH ROW
+INSERT INTO actividad_web (id_cliente, accion, descripcion)
+SELECT v.id_cliente,
+       'pago',
+       CONCAT('Pago #', NEW.id_pago, ' de la venta #', NEW.id_venta,
+              ' (', NEW.estado, ')')
+FROM ventas v
+WHERE v.id_venta = NEW.id_venta //
+
+-- ------------------------------------------------------------
+-- 5.3 Clasificación de clientes potenciales
+-- Un cliente es potencial si en los últimos 30 días cumple las tres
+-- condiciones: uso frecuente (días distintos), varias interacciones y
+-- actividad acumulada suficiente. Quien ya es Cliente activo o VIP
+-- (categorías 2 y 3) no se vuelve a marcar como prospecto.
+-- ------------------------------------------------------------
+CREATE PROCEDURE actualizar_clientes_potenciales()
+BEGIN
+    DECLARE v_interacciones_minimas INT DEFAULT 5;
+    DECLARE v_dias_activos_minimos  INT DEFAULT 3;
+    DECLARE v_puntaje_minimo        INT DEFAULT 15;
+
+    -- La clasificación se recalcula completa: primero se retira la marca
+    -- anterior y luego se vuelve a asignar según el comportamiento real.
+    DELETE FROM clientes_categorias WHERE id_categoria = 1;
+
+    INSERT IGNORE INTO clientes_categorias (id_cliente, id_categoria)
+    SELECT a.id_cliente, 1
+    FROM actividad_web a
+    WHERE a.id_cliente IS NOT NULL
+      AND a.fecha >= NOW() - INTERVAL 30 DAY
+      AND NOT EXISTS (
+          SELECT 1 FROM clientes_categorias cc
+          WHERE cc.id_cliente = a.id_cliente
+            AND cc.id_categoria IN (2, 3)
+      )
+    GROUP BY a.id_cliente
+    HAVING COUNT(*)                        >= v_interacciones_minimas
+       AND COUNT(DISTINCT DATE(a.fecha))   >= v_dias_activos_minimos
+       AND SUM(fn_puntos_accion(a.accion)) >= v_puntaje_minimo;
+
+    -- Aviso único al vendedor asignado de cada nuevo cliente potencial.
+    -- El mensaje es la clave: si ya existe, no se vuelve a notificar.
+    INSERT INTO notificaciones (id_usuario, titulo, mensaje)
+    SELECT v.id_usuario,
+           'Cliente potencial detectado',
+           CONCAT('Cliente potencial: ', c.nombre)
+    FROM clientes_categorias cc
+    JOIN clientes c ON c.id_cliente = cc.id_cliente
+    JOIN asignaciones_clientes ac ON ac.id_asignacion = (
+        SELECT ac2.id_asignacion
+        FROM asignaciones_clientes ac2
+        WHERE ac2.id_cliente = cc.id_cliente
+        ORDER BY ac2.fecha_asignacion DESC, ac2.id_asignacion DESC
+        LIMIT 1
+    )
+    JOIN vendedores v ON v.id_vendedor = ac.id_vendedor
+    WHERE cc.id_categoria = 1
+      AND NOT EXISTS (
+          SELECT 1 FROM notificaciones n
+          WHERE n.id_usuario = v.id_usuario
+            AND n.mensaje = CONCAT('Cliente potencial: ', c.nombre)
+      );
+END //
+
+-- El paso del tiempo lo controla el EVENT SCHEDULER, no un trigger.
+CREATE EVENT ev_clasificar_clientes_potenciales
+ON SCHEDULE EVERY 6 HOUR
+STARTS CURRENT_TIMESTAMP + INTERVAL 6 HOUR
+ON COMPLETION PRESERVE
+DO
+BEGIN
+    CALL actualizar_clientes_potenciales();
+END //
+
+-- ------------------------------------------------------------
+-- 5.4 Auditoría automática
+-- El backend puede hacer  SET @usuario_actual = <id>;  antes de operar.
+-- Si no lo hace (o el id no existe) se guarda NULL, sin romper nada.
+-- ------------------------------------------------------------
+CREATE PROCEDURE registrar_auditoria(
+    IN p_tabla VARCHAR(100),
+    IN p_operacion VARCHAR(10),
+    IN p_registro_id INT,
+    IN p_descripcion TEXT
+)
+BEGIN
+    INSERT INTO auditoria (id_usuario, tabla_afectada, operacion, registro_id, descripcion)
+    VALUES (
+        (SELECT u.id_usuario FROM usuarios u WHERE u.id_usuario = @usuario_actual),
+        p_tabla, p_operacion, p_registro_id, p_descripcion
+    );
+END //
+
+-- clientes
+CREATE TRIGGER trg_clientes_auditar_insert AFTER INSERT ON clientes FOR EACH ROW
+CALL registrar_auditoria('clientes', 'INSERT', NEW.id_cliente, CONCAT('Cliente creado: ', NEW.nombre)) //
+CREATE TRIGGER trg_clientes_auditar_update AFTER UPDATE ON clientes FOR EACH ROW
+CALL registrar_auditoria('clientes', 'UPDATE', NEW.id_cliente, CONCAT('Cliente actualizado: ', NEW.nombre)) //
+CREATE TRIGGER trg_clientes_auditar_delete AFTER DELETE ON clientes FOR EACH ROW
+CALL registrar_auditoria('clientes', 'DELETE', OLD.id_cliente, CONCAT('Cliente eliminado: ', OLD.nombre)) //
+
+-- oportunidades
+CREATE TRIGGER trg_oportunidades_auditar_insert AFTER INSERT ON oportunidades FOR EACH ROW
+CALL registrar_auditoria('oportunidades', 'INSERT', NEW.id_oportunidad, CONCAT('Oportunidad creada: ', NEW.titulo)) //
+CREATE TRIGGER trg_oportunidades_auditar_update AFTER UPDATE ON oportunidades FOR EACH ROW
+CALL registrar_auditoria('oportunidades', 'UPDATE', NEW.id_oportunidad, CONCAT('Oportunidad actualizada: ', NEW.titulo, ' (', NEW.estado, ')')) //
+CREATE TRIGGER trg_oportunidades_auditar_delete AFTER DELETE ON oportunidades FOR EACH ROW
+CALL registrar_auditoria('oportunidades', 'DELETE', OLD.id_oportunidad, CONCAT('Oportunidad eliminada: ', OLD.titulo)) //
+
+-- propuestas
+CREATE TRIGGER trg_propuestas_auditar_insert AFTER INSERT ON propuestas FOR EACH ROW
+CALL registrar_auditoria('propuestas', 'INSERT', NEW.id_propuesta, CONCAT('Propuesta creada por ', NEW.valor_total)) //
+CREATE TRIGGER trg_propuestas_auditar_update AFTER UPDATE ON propuestas FOR EACH ROW
+CALL registrar_auditoria('propuestas', 'UPDATE', NEW.id_propuesta, CONCAT('Propuesta actualizada: ', NEW.estado)) //
+CREATE TRIGGER trg_propuestas_auditar_delete AFTER DELETE ON propuestas FOR EACH ROW
+CALL registrar_auditoria('propuestas', 'DELETE', OLD.id_propuesta, CONCAT('Propuesta eliminada: ', OLD.valor_total)) //
+
+-- ventas
+CREATE TRIGGER trg_ventas_auditar_insert AFTER INSERT ON ventas FOR EACH ROW
+CALL registrar_auditoria('ventas', 'INSERT', NEW.id_venta, CONCAT('Venta registrada por ', NEW.total)) //
+CREATE TRIGGER trg_ventas_auditar_update AFTER UPDATE ON ventas FOR EACH ROW
+CALL registrar_auditoria('ventas', 'UPDATE', NEW.id_venta, CONCAT('Venta actualizada: ', NEW.estado, ' / total ', NEW.total)) //
+CREATE TRIGGER trg_ventas_auditar_delete AFTER DELETE ON ventas FOR EACH ROW
+CALL registrar_auditoria('ventas', 'DELETE', OLD.id_venta, CONCAT('Venta eliminada por ', OLD.total)) //
+
+-- pagos
+CREATE TRIGGER trg_pagos_auditar_insert AFTER INSERT ON pagos FOR EACH ROW
+CALL registrar_auditoria('pagos', 'INSERT', NEW.id_pago, CONCAT('Pago registrado: ', NEW.valor, ' (', NEW.estado, ')')) //
+CREATE TRIGGER trg_pagos_auditar_update AFTER UPDATE ON pagos FOR EACH ROW
+CALL registrar_auditoria('pagos', 'UPDATE', NEW.id_pago, CONCAT('Pago actualizado: ', NEW.estado)) //
+CREATE TRIGGER trg_pagos_auditar_delete AFTER DELETE ON pagos FOR EACH ROW
+CALL registrar_auditoria('pagos', 'DELETE', OLD.id_pago, CONCAT('Pago eliminado: ', OLD.valor)) //
+
+DELIMITER ;
+
+-- El programador de eventos viene apagado por defecto en MySQL.
+-- Requiere privilegio de administrador.
+SET GLOBAL event_scheduler = ON;
+
+-- ============================================================
+-- PARTE 6. PRUEBAS DE LOS TRIGGERS Y DEL EVENTO
+-- Todo ocurre dentro de una transacción y termina con ROLLBACK,
+-- así que el CRM queda sin datos de prueba.
+-- ============================================================
+
+SET @actividades_antes = (SELECT COUNT(*) FROM actividad_web);
+
+START TRANSACTION;
+
+-- 1. Interacción de campaña -> actividad_web
+INSERT INTO campanas_interacciones (id_campana, id_cliente, tipo, resultado)
+VALUES (3, 5, 'formulario', 'Prueba: solicitó una demo.');
+
+SELECT '1. Campaña' AS prueba, id_cliente, accion, descripcion
+FROM actividad_web
+WHERE id_cliente = 5
+ORDER BY id_actividad DESC
+LIMIT 1;
+
+-- 2. Seguimiento -> actividad_web (el cliente sale de la oportunidad)
+INSERT INTO seguimientos (id_oportunidad, id_usuario, tipo, descripcion)
+VALUES (4, 2, 'llamada', 'Prueba: llamada de seguimiento.');
+
+SELECT '2. Seguimiento' AS prueba, id_cliente, accion, descripcion
+FROM actividad_web
+WHERE id_cliente = 6
+ORDER BY id_actividad DESC
+LIMIT 1;
+
+-- 3. Propuesta en borrador: no debe generar actividad
+INSERT INTO propuestas (id_oportunidad, fecha, valor_total, estado)
+VALUES (4, CURDATE(), 1000000, 'borrador');
+SET @id_propuesta_prueba = LAST_INSERT_ID();
+
+SELECT '3. Borrador sin actividad' AS prueba, COUNT(*) AS filas
+FROM actividad_web
+WHERE id_cliente = 6 AND accion = 'propuesta';
+-- Esperado: 0
+
+-- 4. Propuesta enviada: se registra una sola vez
+UPDATE propuestas SET estado = 'enviada'
+WHERE id_propuesta = @id_propuesta_prueba;
+
+UPDATE propuestas SET observaciones = 'Prueba: sin cambio de estado'
+WHERE id_propuesta = @id_propuesta_prueba;
+
+SELECT '4. Sin duplicados' AS prueba, COUNT(*) AS filas
+FROM actividad_web
+WHERE id_cliente = 6 AND accion = 'propuesta';
+-- Esperado: 1
+
+-- 5. Venta -> actividad 'compra'
+INSERT INTO ventas (id_cliente, id_vendedor, total, estado)
+VALUES (5, 3, 450000, 'pendiente');
+SET @id_venta_prueba = LAST_INSERT_ID();
+
+-- 6. Pago -> actividad 'pago'
+INSERT INTO pagos (id_venta, metodo_pago, valor, estado)
+VALUES (@id_venta_prueba, 'efectivo', 450000, 'aprobado');
+
+SELECT '5-6. Venta y pago' AS prueba, id_cliente, accion, descripcion
+FROM actividad_web
+WHERE id_cliente = 5 AND accion IN ('compra', 'pago')
+ORDER BY id_actividad;
+
+-- 7. Clasificación: se completan 5 interacciones en 3 días distintos
+INSERT INTO actividad_web (id_cliente, accion, descripcion, fecha) VALUES
+(5, 'visita',   'Prueba: visita de hace 2 días',  NOW() - INTERVAL 2 DAY),
+(5, 'descarga', 'Prueba: descarga de hace 1 día', NOW() - INTERVAL 1 DAY);
+
+CALL actualizar_clientes_potenciales();
+
+SELECT c.nombre AS cliente,
+       COUNT(a.id_actividad)          AS interacciones,
+       COUNT(DISTINCT DATE(a.fecha))  AS dias_activos,
+       COALESCE(SUM(IF(a.id_actividad IS NULL, 0,
+                       fn_puntos_accion(a.accion))), 0) AS puntaje,
+       IF(EXISTS (SELECT 1 FROM clientes_categorias cc
+                  WHERE cc.id_cliente = c.id_cliente
+                    AND cc.id_categoria = 1),
+          'Potencial', 'No potencial') AS clasificacion
+FROM clientes c
+LEFT JOIN actividad_web a
+       ON a.id_cliente = c.id_cliente
+      AND a.fecha >= NOW() - INTERVAL 30 DAY
+GROUP BY c.id_cliente, c.nombre
+ORDER BY puntaje DESC;
+
+-- 8. Aviso al vendedor (una sola vez por cliente)
+SELECT '8. Notificación' AS prueba, id_usuario, titulo, mensaje
+FROM notificaciones
+WHERE titulo = 'Cliente potencial detectado';
+
+-- 9. El evento queda programado
+SELECT '9. Evento' AS prueba, EVENT_NAME, STATUS, INTERVAL_VALUE, INTERVAL_FIELD
+FROM information_schema.EVENTS
+WHERE EVENT_SCHEMA = DATABASE();
+
+-- 10. Se deshacen las pruebas
+ROLLBACK;
+
+SELECT '10. Rollback' AS prueba,
+       (SELECT COUNT(*) FROM actividad_web) - @actividades_antes AS actividades_nuevas;
+-- Esperado: 0
