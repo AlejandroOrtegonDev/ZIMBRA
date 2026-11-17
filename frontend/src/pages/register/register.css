@@ -1,0 +1,185 @@
+/* Vista de registro. Sustituye a las clases de Tailwind/Untitled UI
+   porque el proyecto no tiene esos componentes instalados. */
+
+#root:has(.registro) {
+    width: 100%;
+    border: 0;
+}
+
+.registro {
+    min-height: 100svh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 16px;
+    box-sizing: border-box;
+    background: #f9fafb;
+    text-align: left;
+    font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+.registro-tarjeta {
+    width: 100%;
+    max-width: 440px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 32px;
+    box-sizing: border-box;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
+}
+
+.registro-encabezado {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    text-align: center;
+}
+
+.registro-logo {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #7f56d9;
+    color: #fff;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.registro-titulos {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.registro h1 {
+    margin: 0;
+    font-size: 30px;
+    line-height: 38px;
+    font-weight: 600;
+    letter-spacing: normal;
+    color: #101828;
+}
+
+.registro-titulos p {
+    font-size: 16px;
+    color: #475467;
+}
+
+.registro-formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.registro-campos {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.registro-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.registro-input {
+    width: 100%;
+    padding: 10px 14px;
+    box-sizing: border-box;
+    font: inherit;
+    font-size: 16px;
+    color: #101828;
+    background: #fff;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+
+.registro-input::placeholder {
+    color: #667085;
+}
+
+.registro-input:focus {
+    outline: none;
+    border-color: #7f56d9;
+    box-shadow: 0 0 0 4px rgba(127, 86, 217, 0.24);
+}
+
+.registro-ayuda {
+    font-size: 14px;
+    color: #475467;
+}
+
+.registro-acciones {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.registro-boton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 16px;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    background: #7f56d9;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.registro-boton:hover {
+    background: #6941c6;
+}
+
+.registro-boton:focus-visible {
+    outline: 2px solid #7f56d9;
+    outline-offset: 2px;
+}
+
+.registro-boton--social {
+    color: #344054;
+    background: #fff;
+    font-weight: 500;
+    border: 1px solid #d0d5dd;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+
+.registro-boton--social:hover {
+    background: #f9fafb;
+}
+
+.registro-google {
+    font-weight: 700;
+    color: #4285f4;
+}
+
+.registro-pie {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    font-size: 14px;
+    color: #475467;
+}
+
+.registro-pie a {
+    color: #6941c6;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.registro-pie a:hover {
+    text-decoration: underline;
+}

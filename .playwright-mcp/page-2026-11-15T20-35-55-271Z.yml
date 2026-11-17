@@ -1,0 +1,25 @@
+- generic [ref=f10e4]:
+  - generic [ref=f10e5]:
+    - generic [aria-hidden] [ref=f10e6]: Z
+    - generic [ref=f10e7]:
+      - heading "Start your free trial" [level=1] [ref=f10e8]
+      - paragraph [ref=f10e9]: Sign up in less than 2 minutes.
+  - generic [ref=f10e10]:
+    - generic [ref=f10e11]:
+      - textbox "Name" [ref=f10e12]:
+        - /placeholder: Enter your name
+      - textbox "Email" [ref=f10e13]:
+        - /placeholder: Enter your email
+      - generic [ref=f10e14]:
+        - textbox "Password" [ref=f10e15]:
+          - /placeholder: Create a password
+        - paragraph [ref=f10e16]: Must be at least 8 characters.
+    - generic [ref=f10e17]:
+      - button "Get started" [ref=f10e18] [cursor=pointer]
+      - button "Sign up with Google" [ref=f10e19] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f10e20]: G
+        - text: Sign up with Google
+  - generic [ref=f10e21]:
+    - generic [ref=f10e22]: Already have an account?
+    - link "Log in" [ref=f10e23] [cursor=pointer]:
+      - /url: "#"

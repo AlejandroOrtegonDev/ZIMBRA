@@ -1,0 +1,14 @@
+# Dependencias
+node_modules/
+
+# Configuración local y secretos
+.env
+backend/.env
+frontend/.env
+
+# Compilación
+dist/
+dist-ssr/
+
+# Registros
+*.log
