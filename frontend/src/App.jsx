@@ -3,6 +3,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { obtenerClientes, crearCliente, actualizarCliente, desactivarCliente, obtenerProspectos, obtenerVendedores, crearProspecto,} from './services/api'
 import './App.css'
 import SeguimientoProspecto from './SeguimientoProspecto'
+import VistaOportunidades from './VistaOportunidades'
+import VistaVentas from './VistaVentas'
+
 
 const formularioInicial = {
   tipo_cliente: 'empresa',
@@ -203,14 +206,34 @@ async function manejarDesactivacion(cliente) {
   <span>◉</span>
   Prospectos
   </a>
+
+  <a
+  className={`menu-item ${vista === 'oportunidades' ? 'activo' : ''}`}
+  href="#oportunidades"
+  onClick={(evento) => {
+    evento.preventDefault()
+    setVista('oportunidades')
+  }}
+>
+  <span>▣</span>
+  Oportunidades
+</a>
+
           <a className="menu-item deshabilitado" href="#vendedores">
             <span>♙</span>
             Vendedores
           </a>
-          <a className="menu-item deshabilitado" href="#ventas">
-            <span>▤</span>
-            Ventas
-          </a>
+          <a
+  className={`menu-item ${vista === 'ventas' ? 'activo' : ''}`}
+  href="#ventas"
+  onClick={(evento) => {
+    evento.preventDefault()
+    setVista('ventas')
+  }}
+>
+  <span>▤</span>
+  Ventas
+</a>
         </nav>
 
         <div className="sidebar-pie">
@@ -489,10 +512,15 @@ async function manejarDesactivacion(cliente) {
           </div>
         </section>
             </>
-  ) : (
-    <VistaProspectos />
-  )}
-      </main>
+) : vista === 'prospectos' ? (
+  <VistaProspectos />
+) : vista === 'oportunidades' ? (
+  <VistaOportunidades />
+) : (
+  <VistaVentas />
+)}
+
+</main>
     </div>
   )
 }

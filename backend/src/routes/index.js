@@ -4,6 +4,8 @@ import { Router } from 'express'
 import healthRouter from './health.routes.js'
 import clienteRouter from './cliente.routes.js'
 import seguimientoRouter from './seguimiento.routes.js'
+import oportunidadRouter from './oportunidad.routes.js'
+import ventaRouter from './venta.routes.js'
 
 const router = Router()
 
@@ -21,5 +23,11 @@ router.use('/api/clientes', clienteRouter)
 
 // Seguimiento comercial de prospectos
 router.use('/api/clientes', seguimientoRouter)
+
+// Gestión de oportunidades comerciales
+router.use('/api/oportunidades', oportunidadRouter)
+
+// Gestión de ventas e inventario
+router.use('/api/ventas', ventaRouter)
 
 export default router
