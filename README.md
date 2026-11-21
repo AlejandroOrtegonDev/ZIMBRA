@@ -218,3 +218,55 @@ Los errores de reglas de negocio (`SIGNAL`, `CHECK`, llaves) llegan como `400/40
 7. **Tablero**: indicadores y gráficos sobre las vistas.
 8. **Concurrencia:** `npm run db:concurrencia` o `database/concurrencia.sql` en dos pestañas de Workbench.
 9. **Seguridad:** conectarse como `zimbra_analista` y mostrar el error 1142 al consultar `clientes`.
+
+## 8. Integración de Rama-Pacheco (rama_fusion)
+
+Se conservan los avances de ambas versiones. Lo de Sebastián sigue siendo la
+base del proceso comercial; de Pacheco se incorporó la capa CRUD genérica y
+los endpoints de negocio.
+
+### Endpoints de negocio (nuevos)
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| GET | `/api/dashboard` | Indicadores calculados sobre tablas base (pipeline, cobrado, conversión) |
+| GET | `/api/oportunidades/pipeline` | Oportunidades abiertas agrupadas por etapa |
+| PATCH | `/api/oportunidades/:id/etapa` | Mueve la oportunidad de etapa y deja historial |
+| GET | `/api/clientes/:id/detalle` | Cliente con contactos, categorías, asignaciones, oportunidades y ventas |
+| GET | `/api/ventas/:id/detalle` | Venta con productos, pagos, cliente y saldo |
+| GET | `/api/productos/:id/detalle` | Producto con atributos y categorías |
+| PATCH | `/api/tareas/:id/estado` | Cambia el estado de la tarea |
+| PATCH | `/api/notificaciones/:id/leida` | Marca la notificación como leída |
+| GET | `/api/roles/matriz` | Qué permisos tiene cada rol |
+| GET | `/api/usuarios/:id/permisos` | Rol y permisos efectivos del usuario |
+
+Todas exigen sesión (token). `/api/roles/matriz` se arma cruzando `roles`,
+`permisos` y `roles_permisos`: el esquema nuevo no tiene la tabla
+`matriz_permisos` que usaba la versión de Pacheco.
+
+### CRUD genérico (`GET /`, `GET /:id`, `POST /`, `PUT/PATCH /:id`, `DELETE /:id`)
+
+`/api/contactos`, `/api/categorias-clientes`, `/api/roles`, `/api/permisos`,
+`/api/asignaciones`, `/api/etapas`, `/api/seguimientos`, `/api/tareas`,
+`/api/campanas`, `/api/campanas-interacciones`, `/api/categorias-productos`,
+`/api/eventos`, `/api/actividad`, `/api/notificaciones`, `/api/etiquetas`,
+`/api/correos`, `/api/reportes`, `/api/auditoria`, `/api/compania`,
+`/api/configuracion`.
+
+Parámetros: `?limite=20&offset=0` para paginar y un filtro por campo del
+modelo (`?estado=pendiente`).
+
+### Decisiones de la integración
+
+- **Clientes, prospectos, oportunidades, productos, propuestas, ventas,
+  vendedores y pagos** conservan las rutas específicas (permisos por rol,
+  validaciones y procedimientos de la base). El CRUD genérico no las reemplaza.
+- **Usuarios**: solo `GET /api/usuarios` y `GET /api/usuarios/:id`. El alta y
+  la clave van por `/api/auth` porque usan bcrypt; un `POST` genérico
+  guardaría la contraseña en texto plano.
+- **Pagos**: no hay CRUD. Se registran con `POST /api/ventas/:id/pagos`
+  (`procesar_pago_venta`) y se aprueban/rechazan con
+  `PATCH /api/pagos/:idPago/estado`; así no se puede borrar un pago y dejar
+  el saldo de la venta incoherente.
+- **`errorHandler`**: conserva la traducción por `errno` de Sebastián y añade
+  la traducción por `code` de Pacheco como respaldo.
