@@ -1,11 +1,27 @@
 
 import { useCallback, useEffect, useState } from 'react'
-import { obtenerClientes, crearCliente, actualizarCliente, desactivarCliente, obtenerProspectos, obtenerVendedores, crearProspecto,} from './services/api'
+import { obtenerClientes, crearCliente, actualizarCliente, desactivarCliente, obtenerProspectos, obtenerVendedores, crearProspecto, obtenerSesion, cerrarSesion, tienePermiso } from './services/api'
 import './App.css'
+import './pages/modulos.css'
 import SeguimientoProspecto from './SeguimientoProspecto'
-import VistaOportunidades from './VistaOportunidades'
-import VistaVentas from './VistaVentas'
+import Dashboard from './pages/Dashboard'
+import Propuestas from './pages/Propuestas'
+import Ventas from './pages/Ventas'
+import Vendedores from './pages/Vendedores'
+import Reportes from './pages/Reportes'
 
+// Menú lateral: cada opción se muestra solo si el rol tiene el permiso
+const MENU = [
+  { vista: 'dashboard', icono: '◧', texto: 'Tablero', permiso: 'reportes.ver' },
+  { vista: 'clientes', icono: '▦', texto: 'Clientes', permiso: 'clientes.ver' },
+  { vista: 'prospectos', icono: '◉', texto: 'Prospectos', permiso: 'prospectos.ver' },
+  { vista: 'propuestas', icono: '▣', texto: 'Propuestas', permiso: 'propuestas.ver' },
+  { vista: 'ventas', icono: '▤', texto: 'Ventas y pagos', permiso: 'ventas.ver' },
+  { vista: 'vendedores', icono: '♙', texto: 'Vendedores', permiso: 'vendedores.ver' },
+  { vista: 'reportes', icono: '▥', texto: 'Reportes', permiso: 'reportes.ver' },
+]
+
+const NOMBRE_ROL = { admin: 'Administrador', user: 'Comercial', user_demo: 'Solo lectura' }
 
 const formularioInicial = {
   tipo_cliente: 'empresa',
@@ -27,7 +43,17 @@ function App() {
   const [error, setError] = useState('')
   const [mensaje, setMensaje] = useState('')
   const [clienteEditando, setClienteEditando] = useState(null)
-  const [vista, setVista] = useState('clientes')
+  const menuVisible = MENU.filter((opcion) => tienePermiso(opcion.permiso))
+  const [vista, setVista] = useState(() => {
+    const inicial = window.location.hash.replace('#', '')
+    return menuVisible.some((o) => o.vista === inicial) ? inicial : menuVisible[0]?.vista ?? 'clientes'
+  })
+  const usuario = obtenerSesion()?.usuario
+
+  function irA(nuevaVista) {
+    setVista(nuevaVista)
+    window.history.replaceState(null, '', `#${nuevaVista}`)
+  }
 
   // Consultar clientes en el backend
   const cargarClientes = useCallback(async () => {
@@ -183,67 +209,42 @@ async function manejarDesactivacion(cliente) {
         <p className="menu-titulo">MENÚ PRINCIPAL</p>
 
         <nav className="menu">
-          <a
-  className={`menu-item ${vista === 'clientes' ? 'activo' : ''}`}
-  href="#clientes"
-  onClick={(evento) => {
-    evento.preventDefault()
-    setVista('clientes')
-  }}
->
-  <span>▦</span>
-  Clientes
-</a>
-
-<a
-  className={`menu-item ${vista === 'prospectos' ? 'activo' : ''}`}
-  href="#prospectos"
-  onClick={(evento) => {
-    evento.preventDefault()
-    setVista('prospectos')
-  }}
->
-  <span>◉</span>
-  Prospectos
-  </a>
-
-  <a
-  className={`menu-item ${vista === 'oportunidades' ? 'activo' : ''}`}
-  href="#oportunidades"
-  onClick={(evento) => {
-    evento.preventDefault()
-    setVista('oportunidades')
-  }}
->
-  <span>▣</span>
-  Oportunidades
-</a>
-
-          <a className="menu-item deshabilitado" href="#vendedores">
-            <span>♙</span>
-            Vendedores
-          </a>
-          <a
-  className={`menu-item ${vista === 'ventas' ? 'activo' : ''}`}
-  href="#ventas"
-  onClick={(evento) => {
-    evento.preventDefault()
-    setVista('ventas')
-  }}
->
-  <span>▤</span>
-  Ventas
-</a>
+          {menuVisible.map((opcion) => (
+            <a
+              key={opcion.vista}
+              className={`menu-item ${vista === opcion.vista ? 'activo' : ''}`}
+              href={`#${opcion.vista}`}
+              onClick={(evento) => {
+                evento.preventDefault()
+                irA(opcion.vista)
+              }}
+            >
+              <span>{opcion.icono}</span>
+              {opcion.texto}
+            </a>
+          ))}
         </nav>
 
         <div className="sidebar-pie">
-          <span>Proyecto académico</span>
-          <strong>Sistemas Distribuidos</strong>
+          <span>{NOMBRE_ROL[usuario?.rol] ?? usuario?.rol}</span>
+          <strong>{usuario?.nombre}</strong>
+          <div className="usuario-sesion">
+            <span>{usuario?.correo}</span>
+          </div>
+          <div className="usuario-sesion">
+            <button type="button" onClick={cerrarSesion}>Cerrar sesión</button>
+          </div>
         </div>
       </aside>
 
       <main className="contenido">
-        {vista === 'clientes' ? (
+        {vista === 'dashboard' && <Dashboard />}
+        {vista === 'propuestas' && <Propuestas />}
+        {vista === 'ventas' && <Ventas />}
+        {vista === 'vendedores' && <Vendedores />}
+        {vista === 'reportes' && <Reportes />}
+        {vista === 'prospectos' && <VistaProspectos />}
+        {vista === 'clientes' && (
   <>
         <header className="encabezado">
           <div>
@@ -252,6 +253,7 @@ async function manejarDesactivacion(cliente) {
             <p>Administra la información de tus clientes.</p>
           </div>
 
+          {tienePermiso('clientes.crear') && (
           <button
             className="boton-principal"
               onClick={() => {
@@ -264,6 +266,7 @@ async function manejarDesactivacion(cliente) {
           >
             + Nuevo cliente
           </button>
+          )}
         </header>
 
         <section className="indicadores">
@@ -470,6 +473,7 @@ async function manejarDesactivacion(cliente) {
                       </td>
                       <td>
   <div className="acciones-tabla">
+    {tienePermiso('clientes.editar') && (
     <button
       type="button"
       className="boton-editar"
@@ -477,8 +481,9 @@ async function manejarDesactivacion(cliente) {
     >
       Editar
     </button>
+    )}
 
-    {Number(cliente.estado) === 1 && (
+    {Number(cliente.estado) === 1 && tienePermiso('clientes.desactivar') && (
       <button
         type="button"
         className="boton-desactivar"
@@ -512,15 +517,8 @@ async function manejarDesactivacion(cliente) {
           </div>
         </section>
             </>
-) : vista === 'prospectos' ? (
-  <VistaProspectos />
-) : vista === 'oportunidades' ? (
-  <VistaOportunidades />
-) : (
-  <VistaVentas />
-)}
-
-</main>
+  )}
+      </main>
     </div>
   )
 }
@@ -663,6 +661,7 @@ if (prospectoSeleccionado) {
           <p>Administra los posibles clientes y sus vendedores responsables.</p>
         </div>
 
+        {tienePermiso('prospectos.crear') && (
         <button
           className="boton-principal"
           onClick={() => {
@@ -674,6 +673,7 @@ if (prospectoSeleccionado) {
         >
           + Nuevo prospecto
         </button>
+        )}
       </header>
 
       <section className="indicadores">
@@ -681,6 +681,12 @@ if (prospectoSeleccionado) {
           <span>Total de prospectos</span>
           <strong>{prospectos.length}</strong>
           <small>Registros encontrados</small>
+        </article>
+
+        <article className="indicador">
+          <span>Prospectos potenciales</span>
+          <strong>{prospectos.filter((p) => Boolean(p.es_potencial)).length}</strong>
+          <small>Alta interacción en 30 días (evento programado)</small>
         </article>
 
         <article className="indicador">
@@ -862,6 +868,11 @@ if (prospectoSeleccionado) {
                       <strong>
                         {prospecto.nombre} {prospecto.apellido || ''}
                       </strong>
+                      {Boolean(prospecto.es_potencial) && (
+                        <span className="etiqueta-potencial" title={`Puntaje de interés: ${prospecto.puntaje}`}>
+                          Potencial · {prospecto.puntaje} pts
+                        </span>
+                      )}
                     </td>
                     <td>{prospecto.tipo_cliente}</td>
                     <td>{prospecto.documento || '—'}</td>

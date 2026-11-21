@@ -45,44 +45,14 @@ export const {
 } = Cliente
 
 
-// Consultar todos los prospectos y sus vendedores asignados
+// Consultar todos los prospectos y sus vendedores asignados.
+// La vista vw_prospectos resuelve el vendedor actual (última asignación)
+// y agrega el puntaje de interés (UDF) y la marca 'Potencial'.
 export async function obtenerProspectos() {
   const [filas] = await pool.query(`
-    SELECT
-      c.id_cliente,
-      c.tipo_cliente,
-      c.nombre,
-      c.apellido,
-      c.documento,
-      c.correo,
-      c.telefono,
-      c.direccion,
-      c.estado,
-      c.fecha_creacion,
-      v.id_vendedor,
-      u.nombre AS vendedor_nombre
-    FROM clientes c
-    INNER JOIN clientes_categorias cc
-      ON c.id_cliente = cc.id_cliente
-    INNER JOIN categorias_clientes cat
-      ON cc.id_categoria = cat.id_categoria
-    LEFT JOIN (
-      SELECT a1.id_cliente, a1.id_vendedor
-      FROM asignaciones_clientes a1
-      INNER JOIN (
-        SELECT id_cliente, MAX(id_asignacion) AS ultima_asignacion
-        FROM asignaciones_clientes
-        GROUP BY id_cliente
-      ) ult
-        ON a1.id_asignacion = ult.ultima_asignacion
-    ) asignacion
-      ON c.id_cliente = asignacion.id_cliente
-    LEFT JOIN vendedores v
-      ON asignacion.id_vendedor = v.id_vendedor
-    LEFT JOIN usuarios u
-      ON v.id_usuario = u.id_usuario
-    WHERE cat.nombre = 'Prospecto'
-    ORDER BY c.id_cliente DESC
+    SELECT *
+    FROM vw_prospectos
+    ORDER BY es_potencial DESC, id_cliente DESC
   `)
 
   return filas

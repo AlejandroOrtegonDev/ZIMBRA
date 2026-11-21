@@ -1,0 +1,188 @@
+/* Gráficos: tinta en tonos de texto, color solo en las marcas */
+
+.grafico {
+  position: relative;
+}
+
+.grafico-lienzo {
+  position: relative;
+}
+
+.grafico svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.grafico-rejilla {
+  stroke: #edf0f4;
+  stroke-width: 1;
+}
+
+.grafico-base {
+  stroke: #c9cfda;
+  stroke-width: 1;
+}
+
+.grafico-eje {
+  fill: #8a93a3;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.grafico-valor {
+  fill: #485366;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.grafico-resalte {
+  fill: #f1f4fa;
+}
+
+.grafico-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: #485366;
+}
+
+.grafico-leyenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.grafico-leyenda i,
+.grafico-tooltip i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.grafico-tooltip {
+  position: absolute;
+  z-index: 5;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 170px;
+  padding: 10px 12px;
+  background: #17243a;
+  color: #ffffff;
+  border-radius: 8px;
+  font-size: 12px;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(23, 36, 58, 0.2);
+  white-space: nowrap;
+}
+
+.grafico-tooltip span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #d7deea;
+}
+
+.grafico-tabla {
+  margin-top: 12px;
+  font-size: 12px;
+}
+
+.grafico-tabla summary {
+  cursor: pointer;
+  color: #3769d6;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.grafico-tabla table td,
+.grafico-tabla table th {
+  padding: 8px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Barras horizontales */
+.barras-h {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.barras-h-fila {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(110px, 34%) 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  outline: none;
+}
+
+.barras-h-fila.activa,
+.barras-h-fila:focus-visible {
+  background: #f1f4fa;
+}
+
+.barras-h-etiqueta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #485366;
+}
+
+.barras-h-pista {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.barras-h-barra {
+  height: 16px;
+  min-width: 2px;
+  border-radius: 0 4px 4px 0;
+  flex-shrink: 1;
+}
+
+.barras-h-valor {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #303b4d;
+  font-variant-numeric: tabular-nums;
+}
+
+.barras-h-tooltip {
+  left: 60%;
+  top: 0;
+}
+
+/* Tarjetas de indicadores */
+.indicadores-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.indicador-principal strong {
+  font-size: 40px;
+  letter-spacing: -0.5px;
+}
+
+@media (max-width: 1100px) {
+  .indicadores-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .indicadores-4 {
+    grid-template-columns: 1fr;
+  }
+}

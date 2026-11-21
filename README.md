@@ -1,392 +1,220 @@
 # Sistema de Gestión Comercial Zimbra
 
-Aplicación web académica para registrar prospectos, darles seguimiento comercial y consultar la actividad de ventas. Está inspirada en el caso de estudio de Zimbra. No replica el software original ni su arquitectura interna.
+Sistema transaccional académico (Taller Grupal – Caso Zimbra, *Sistemas Transaccionales en SQL*) que simula los procesos de **marketing y ventas**: prospectos, oportunidades, propuestas, ventas, pagos, campañas y reportes. Está inspirado en el caso de estudio de Zimbra; no replica el software original ni su arquitectura interna.
 
 <p>
   <img alt="React" src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" />
   <img alt="Vite" src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white" />
   <img alt="Express" src="https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white" />
-  <img alt="MySQL" src="https://img.shields.io/badge/MySQL-local-4479A1?logo=mysql&logoColor=white" />
+  <img alt="MySQL" src="https://img.shields.io/badge/MySQL-8.0.16+-4479A1?logo=mysql&logoColor=white" />
 </p>
 
-## Estado actual
-
-React y Express se comunican en local. La pantalla inicial consulta `GET /api/estado` y `GET /api/db`.
-
-El backend ya tiene la arquitectura en capas (rutas → controladores → modelos) y los 39 modelos del esquema están generados y validados contra la base de datos. El frontend aún consume solo los endpoints de estado y la lectura de clientes.
-
-## Estructura general
-
-```text
-zimbra/
-├── frontend/                 React + Vite
-│   └── src/
-│       ├── services/api.js   Llamadas al backend
-│       ├── App.jsx
-│       └── main.jsx
-├── backend/                  API REST
-│   ├── src/                  Ver detalle en "Estructura del backend"
-│   ├── scripts/              Herramientas de mantenimiento
-│   ├── .env                  Puerto y credenciales locales (no se sube a Git)
-│   └── .env.example
-├── run.bat                   Levanta frontend y backend a la vez
-├── zimbra.sql                Esquema de la base de datos (39 tablas)
-├── seed_datos_prueba.sql     Datos de prueba
-├── PROYECTO_ZIMBRA.md
-└── README.md
-```
-
-## Requisitos
-
-- Windows 11
-- [Node.js](https://nodejs.org/) 20 o superior (en este equipo se usó la versión 22)
-- npm
-- MySQL Server en local, con una base de datos llamada `zimbra`
-
-## Dependencias
-
-El backend usa:
-
-- Express 5, para la API
-- CORS, para aceptar peticiones desde React
-- dotenv, para leer el archivo `.env`
-- mysql2, para conectar con MySQL
-- Nodemon, para reiniciar el servidor en desarrollo
-
-El frontend usa:
-
-- React 19 y React DOM
-- Vite 8, para el servidor de desarrollo
-- ESLint, para revisar el código
-
----
-
-# Estructura del backend
-
-```text
-backend/src/
-├── server.js                 Arranque del proceso
-├── app.js                    Ensamble de la aplicación Express
-├── config/
-│   ├── env.js                Carga y validación de variables
-│   └── database.js           Pool de conexiones MySQL
-├── routes/
-│   ├── index.js              Registro de todas las rutas
-│   ├── health.routes.js      Estado del servicio y de la BD
-│   └── cliente.routes.js     Rutas de clientes
-├── controllers/
-│   ├── health.controller.js
-│   └── cliente.controller.js
-├── models/
-│   ├── base.model.js         Fábrica de modelos CRUD
-│   └── *.model.js            Un archivo por dominio
-├── middlewares/
-│   ├── notFound.js           404 para rutas inexistentes
-│   └── errorHandler.js       Error centralizado
-└── utils/
-    └── ApiError.js           Error con código HTTP
-```
-
-El flujo de una petición es siempre el mismo:
-
-```text
-Petición HTTP → routes (define la URL) → controller (arma la respuesta)
-              → model (habla con MySQL) → config/database.js (pool)
-```
-
-## server.js
-
-Punto de entrada. Lee el puerto del `.env`, arranca el servidor y al iniciar comprueba la conexión con MySQL. También registra el apagado ordenado: al recibir `SIGINT` o `SIGTERM` (Ctrl+C) cierra el servidor HTTP y después el pool de conexiones, para no dejar conexiones colgando.
-
-No contiene lógica de negocio. Si algo cambia en cómo se expone el servicio, se cambia aquí.
-
-## app.js
-
-Ensamble de la aplicación. Solo hace tres cosas:
-
-1. Registra los middlewares globales: `cors` (acepta `http://localhost:5173`) y `express.json` (lee cuerpos JSON).
-2. Monta `apiRouter` desde `routes/index.js`.
-3. Cierra con `notFound` y `errorHandler`, que van al final a propósito.
-
-Regla: aquí no se escribe ninguna ruta de negocio. Todo recurso nuevo se agrega en `routes/index.js`.
-
-## config/env.js
-
-Ejecuta `dotenv.config()` y revisa que existan `PORT`, `DB_HOST`, `DB_NAME`, `DB_USER` y `DB_PASSWORD`. Si falta alguna, imprime un aviso en consola.
-
-Este archivo se importa primero (antes que `database.js`), porque si no, las variables llegan vacías y el pool se crea con credenciales incorrectas.
-
-## config/database.js
-
-Crea el pool de conexiones con `mysql2/promise` usando las variables del `.env`. Exporta cuatro cosas:
-
-- `pool` (default): lo usan los modelos para ejecutar consultas.
-- `comprobarConexion()`: ejecuta `SELECT 1` y confirma que MySQL responde.
-- `listarTablas()`: devuelve `SHOW TABLES`, usada por la raíz de la API.
-- `cerrarPool()`: cierra las conexiones al apagar el servidor.
-
-Es el único archivo del proyecto que toca `mysql.createPool`.
-
-## routes/
-
-Define **qué URL existe y qué controlador la atiende**. Nada más: no consulta la base de datos ni arma respuestas.
-
-- `index.js`: punto de entrada de la API. Aquí se declaran los prefijos y se montan los routers de cada recurso. Es el único archivo que conoce todas las rutas.
-- `health.routes.js`: `/`, `/estado` y `/db` (diagnóstico).
-- `cliente.routes.js`: `GET /` y `GET /:id`.
-
-Para agregar un recurso nuevo: crear `nombre.routes.js`, importar el controlador, declarar sus verbos y montarlo en `index.js` con su prefijo.
-
-## controllers/
-
-Capa que traduce la petición HTTP a una respuesta HTTP. Recibe `req`, extrae parámetros, llama al modelo y responde JSON.
-
-- No escribe SQL.
-- No decide estados HTTP de error manualmente: lanza `ApiError` (por ejemplo 404) y el middleware de errores responde.
-- Usa funciones `async` directamente: Express 5 captura las promesas rechazadas y las manda al manejador de errores, por eso no se necesita `try/catch` en cada controlador.
-
-`health.controller.js` tiene `estado`, `estadoBaseDatos` y `estadoGeneral`. `cliente.controller.js` tiene `listarClientes` y `obtenerCliente`.
-
-## models/
-
-Única capa que conoce SQL. Cada modelo representa una tabla y expone sus consultas.
-
-### base.model.js
-
-Fábrica para no repetir el mismo CRUD 39 veces. Exporta dos funciones:
-
-`crearModelo(tabla, columnaId, campos)` — para tablas con clave primaria simple. Devuelve un objeto con:
-
-- `obtenerTodos({ limite, offset })`: lista con paginación opcional.
-- `obtenerPorId(id)`: un registro o `null`.
-- `obtenerPor(campo, valor, { limite, offset })`: filtra por una columna declarada (por ejemplo, contactos de un cliente).
-- `contar()`: total de filas.
-- `crear(datos)`: inserta y devuelve el registro creado.
-- `actualizar(id, datos)`: actualiza solo los campos enviados; si no hay ninguno, devuelve el registro sin cambios.
-- `eliminar(id)`: devuelve `true` si borró algo.
-
-`crearModeloRelacion(tabla, claves, campos)` — para tablas puente con clave primaria compuesta. Devuelve:
-
-- `obtenerTodos()`
-- `obtenerPorClave({ ... })`
-- `listarPor(campo, valor)`
-- `crear(datos)`
-- `eliminar({ ... })`
-- `existe({ ... })`
-
-**Seguridad en las consultas.** Los valores siempre van parametrizados con `?`. Los nombres de tabla y columna vienen del código (nunca del request) y se validan con la expresión regular `^[a-z][a-z0-9_]*$` antes de interpolarlos. `obtenerPor` y `listarPor` además solo aceptan columnas declaradas en el modelo, así que un atacante no puede filtrar por una columna arbitraria.
-
-### Modelos por dominio
-
-Los archivos agrupan tablas relacionadas. Cada uno exporta objetos con el nombre del modelo:
-
-| Archivo | Modelos |
+| Capa | Contenido |
 | --- | --- |
-| `usuario.model.js` | Usuario, Rol, Permiso, UsuarioRol, RolPermiso |
-| `cliente.model.js` | Cliente, Contacto, CategoriaCliente, ClienteCategoria |
-| `vendedor.model.js` | Vendedor, AsignacionCliente |
-| `oportunidad.model.js` | EtapaVenta, Oportunidad, OportunidadDetalle, Seguimiento, Tarea |
-| `campana.model.js` | Campana, CampanaCliente, CampanaInteraccion |
-| `producto.model.js` | CategoriaProducto, Producto, ProductoDetalle, ProductoCategoria |
-| `propuesta.model.js` | Propuesta, PropuestaDetalle |
-| `venta.model.js` | Venta, VentaProducto, Pago |
-| `actividad.model.js` | ActividadWeb, Notificacion |
-| `compania.model.js` | Compania |
-| `evento.model.js` | Evento |
-| `etiqueta.model.js` | Etiqueta, ContactoEtiqueta |
-| `correo.model.js` | Correo, CorreoDestinatario |
-| `reporte.model.js` | Reporte, Auditoria |
-| `configuracion.model.js` | ConfiguracionUsuario |
+| **Base de datos** (`zimbra.sql`) | 39 tablas, 47 llaves foráneas, 23 restricciones CHECK, 30+ registros por tabla, transacciones ACID con SAVEPOINT, simulación de errores, 39 triggers, 7 procedimientos, 8 funciones UDF, 1 evento, 10 vistas, 13 índices, 3 roles y 3 usuarios MySQL |
+| **Backend** (`backend/`) | API REST Express 5 + mysql2, inicio de sesión con bcrypt y token firmado, permisos por rol, endpoints que llaman procedimientos, funciones y vistas |
+| **Frontend** (`frontend/`) | React 19 + Vite: inicio de sesión y registro, tablero con gráficos, clientes, prospectos y seguimiento, propuestas, ventas y pagos, vendedores y reportes |
 
-Las tablas puente (`usuarios_roles`, `roles_permisos`, `clientes_categorias`, `campanas_clientes`, `productos_categorias`, `contactos_etiquetas`) usan `crearModeloRelacion`.
-
-Nota sobre `cliente.model.js`: además de exportar `Cliente`, reexporta sus funciones de forma directa (`obtenerTodos`, `obtenerPorId`, etc.) para que el controlador existente funcione sin cambios.
-
-Ejemplo de uso:
-
-```js
-import { Cliente, Contacto } from '../models/cliente.model.js'
-
-const clientes = await Cliente.obtenerTodos({ limite: 20 })
-const contactos = await Contacto.obtenerPor('id_cliente', 1)
-const nuevo = await Cliente.crear({ tipo_cliente: 'persona', nombre: 'Ana' })
-```
-
-## middlewares/
-
-- `notFound.js`: va después de todas las rutas. Responde `404` con la ruta pedida, para que el cliente no reciba el HTML por defecto de Express.
-- `errorHandler.js`: va de último. Toma el código de `ApiError` si existe, si no usa `500`. Solo imprime el error en consola cuando es `500` o más, y nunca devuelve la traza al cliente.
-
-## utils/
-
-- `ApiError.js`: clase de error con un campo `estado`. Se usa así: `throw new ApiError(404, 'Cliente no encontrado')`. El manejador de errores lo convierte en la respuesta JSON.
-
-## scripts/
-
-- `verificar_modelos.mjs`: conecta a la base de datos, compara cada modelo declarado contra `information_schema.COLUMNS` y reporta tablas sin modelo, tablas inexistentes y columnas inexistentes. Se ejecuta con:
-
-```powershell
-cd backend
-npm run db:check
-```
-
-Es útil después de modificar `zimbra.sql`: si agregas una tabla, el script te dice que falta su modelo.
+El cumplimiento punto por punto de la guía está en [`docs/cumplimiento-taller.md`](docs/cumplimiento-taller.md).
 
 ---
 
-# Cómo arrancar el proyecto
+## 1. Requisitos
 
-## Instalación
+- Windows 10/11
+- [Node.js](https://nodejs.org/) 20 o superior (probado con 24)
+- MySQL Server **8.0.16 o superior** (las restricciones CHECK se aplican desde esa versión) y MySQL Workbench
+- Un usuario MySQL con privilegios de administrador (por ejemplo `root`) **solo para cargar el script**
 
-En PowerShell:
+## 2. Instalación paso a paso (PowerShell)
 
-```powershell
-cd C:\Users\joseo\OneDrive\Escritorio\zimbra\backend
-npm install
+### 2.1 Base de datos
 
-cd C:\Users\joseo\OneDrive\Escritorio\zimbra\frontend
-npm install
-```
+> ⚠️ `zimbra.sql` **borra y recrea** la base `zimbra` y los usuarios MySQL `zimbra_app`, `zimbra_analista` y `zimbra_auditor`. Si tiene datos propios en una base llamada `zimbra`, respáldelos antes:
+> `mysqldump -u root -p zimbra > respaldo_zimbra.sql`
 
-En `backend`, copia `.env.example` como `.env` y escribe el usuario y la contraseña de MySQL. El archivo de ejemplo ya trae el puerto `3001`, el host `localhost` y la base `zimbra`.
-
-Crea la base de datos e importa los datos:
+Si `mysql` no está en el PATH, use la ruta completa del cliente:
 
 ```powershell
-mysql -u root -p < zimbra.sql
-mysql -u root -p zimbra < seed_datos_prueba.sql
+cd C:\ruta\del\proyecto
+& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p --default-character-set=utf8mb4 -e "source zimbra.sql"
 ```
 
-## Puesta en marcha
+O en **MySQL Workbench**: *File → Open SQL Script → zimbra.sql* y ejecutar todo (icono del rayo). El script desactiva por su cuenta el *safe updates* de Workbench.
 
-La forma más corta es doble clic en `run.bat` (o desde la raíz):
+Al final del script se ven las pruebas automáticas (`9.1` a `9.9`) y el conteo de objetos: 39 tablas, 10 vistas, 39 triggers, 7 procedimientos, 8 funciones, etc.
 
-```powershell
-.\run.bat
-```
-
-Abre dos ventanas tituladas `Zimbra Frontend` y `Zimbra Backend`, e instala `node_modules` si falta.
-
-También se puede hacer manual, en dos terminales:
+### 2.2 Backend
 
 ```powershell
 cd backend
-npm run dev
+npm install
+Copy-Item .env.example .env
 ```
+
+El `.env` de ejemplo ya usa el usuario de mínimo privilegio que crea el script (`zimbra_app`). Solo cambie `AUTH_SECRET` por un texto aleatorio:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+```powershell
+npm run dev        # http://localhost:3001
+```
+
+Debe aparecer `Backend escuchando en http://localhost:3001` y `Base de datos conectada`.
+
+### 2.3 Frontend
 
 ```powershell
 cd frontend
-npm run dev
+npm install
+npm run dev        # http://localhost:5173
 ```
 
-Debes ver `Backend escuchando en http://localhost:3001`. Abre `http://localhost:5173`. Si la conexión funciona, la página muestra: **El backend de Zimbra está funcionando**.
+También puede usar `run.bat` (doble clic) para abrir ambos servidores.
 
-## Scripts disponibles
+### 2.4 Cuentas de prueba
 
-Backend:
+| Rol | Correo | Contraseña | Puede |
+| --- | --- | --- | --- |
+| Administrador | `ana.rodriguez@zimbra-demo.com` | `admin123` | Todo, incluida la auditoría y la simulación de errores |
+| Comercial (vendedor) | `carlos.gomez@zimbra-demo.com` | `123456` | Clientes, prospectos, propuestas, ventas, pagos, reportes |
+| Solo lectura | `demo@zimbra-demo.com` | `123456` | Consultar (sin botones de escritura) |
+| Desactivada | `sofia.torres@zimbra-demo.com` | `123456` | No puede iniciar sesión |
 
-```powershell
-npm run dev       # nodemon, reinicia solo al guardar
-npm start         # node, modo producción
-npm run db:check  # valida los modelos contra la base de datos
-```
-
-Frontend:
-
-```powershell
-npm run dev       # Vite en http://localhost:5173
-npm run build     # compilación de producción
-npm run preview   # sirve el build
-npm run lint      # ESLint
-```
+Las cuentas creadas desde `/register` reciben el rol de solo lectura.
 
 ---
 
-# Endpoints de la API
+## 3. Pruebas automáticas
 
-| Método | Ruta | Descripción |
+| Comando (carpeta `backend`) | Qué comprueba |
+| --- | --- |
+| `npm run db:check` | Que los 39 modelos coinciden con las columnas reales de la BD |
+| `npm run test:api` | 56 verificaciones de la API con el backend encendido: login por rol, permisos, flujo prospecto → oportunidad → propuesta → venta → pagos, triggers, procedimientos, vistas y simulación de errores. **Crea datos de prueba.** |
+| `npm run db:concurrencia` | Dos conexiones simultáneas: bloqueo de fila con `FOR UPDATE`, doble cobro evitado, interbloqueo (error 1213) y niveles de aislamiento |
+
+El script `zimbra.sql` también se prueba solo: la PARTE 9 ejecuta las pruebas de triggers dentro de una transacción y termina con `ROLLBACK`.
+
+---
+
+## 4. Estructura
+
+```text
+├── zimbra.sql                    Script SQL final (sesiones 1 a 4)
+├── database/
+│   ├── concurrencia.sql          Demostración de bloqueos con dos pestañas de Workbench
+│   └── generar_datos.mjs         Generador reproducible de la PARTE 2 (datos de prueba)
+├── docs/
+│   ├── requerimientos.md         Requerimientos funcionales y no funcionales (Sesión 1)
+│   ├── modelo-datos.md           Diagrama modelo relacional (DMR) y justificación
+│   └── cumplimiento-taller.md    Requisito de la guía → dónde está implementado
+├── backend/
+│   ├── src/
+│   │   ├── server.js / app.js
+│   │   ├── config/               env.js (variables), database.js (pool, transacciones, @usuario_actual)
+│   │   ├── routes/               auth, cliente, seguimiento, comercial, reporte, health
+│   │   ├── controllers/          validan la entrada y responden JSON
+│   │   ├── models/               única capa con SQL (consultas parametrizadas)
+│   │   ├── middlewares/          auth (token + permisos), errorHandler (errores MySQL → HTTP)
+│   │   └── utils/                ApiError, token (HMAC-SHA256), validar
+│   └── scripts/                  verificar_modelos, probar_api, simular_concurrencia
+└── frontend/src/
+    ├── main.jsx                  /login, /register o el panel (exige sesión)
+    ├── App.jsx                   Menú por permisos, clientes y prospectos
+    ├── SeguimientoProspecto.jsx  Tareas, llamadas y reuniones de un prospecto
+    ├── pages/                    Dashboard, Propuestas, Ventas, Vendedores, Reportes, login, register
+    ├── components/Graficos.jsx   Columnas, barras, indicadores y tabla de datos (SVG, sin librerías)
+    ├── services/api.js           Todas las llamadas al backend + sesión
+    └── utils/                    formato (pesos, fechas, %), colores de los gráficos
+```
+
+Flujo de una petición: `ruta → middleware de permisos → controlador (valida) → modelo (SQL) → MySQL (triggers/procedimientos)`.
+
+---
+
+## 5. Base de datos: organización de `zimbra.sql`
+
+| Parte | Contenido | Sesión |
 | --- | --- | --- |
-| GET | `/` | Comprueba la conexión y lista las tablas de la BD |
-| GET | `/api/estado` | Estado del backend |
-| GET | `/api/db` | Comprueba la conexión con MySQL |
-| GET | `/api/clients` | Lista de clientes (alias por compatibilidad) |
-| GET | `/api/clientes` | Lista de clientes, con `total` |
-| GET | `/api/clientes/:id` | Un cliente por id |
+| 1 | Esquema: 39 tablas, PK, FK con `ON DELETE` justificado, 23 `CHECK`, `UNIQUE` | 1 |
+| 2 | Datos de prueba coherentes: 30+ registros en cada tabla de negocio | 2 |
+| 3 | Funciones UDF: `fn_puntos_accion`, `fn_puntaje_cliente`, `fn_total_propuesta`, `fn_total_venta`, `fn_total_pagado`, `fn_saldo_venta`, `fn_comision_vendedor`, `fn_tasa_conversion` | 3 |
+| 4 | Triggers (reglas de negocio, actividad, auditoría), procedimientos y evento | 3 |
+| 5 | Transacciones ACID: `COMMIT`, `ROLLBACK`, `SAVEPOINT`, procedimiento con `FOR UPDATE`, 6 simulaciones de error con recuperación | 2 |
+| 6 | 13 índices y comparación `EXPLAIN` sin/con índice, `EXPLAIN ANALYZE` | 4 |
+| 7 | 10 vistas para reportes | 4 |
+| 8 | Roles y usuarios MySQL con mínimo privilegio | 4 |
+| 9 | Pruebas automáticas y verificación final | — |
 
-Formato de respuesta:
+**Tablas de catálogo con menos de 30 filas (por diseño):** `roles` (3: el `ENUM` solo admite `admin`, `user`, `user_demo`), `etapas_ventas` (6 etapas del embudo), `categorias_clientes` (5 segmentos) e `info_companie` (1: la empresa dueña del sistema). Las otras 35 tablas tienen entre 30 y 124 registros.
 
-```json
-{ "ok": true, "total": 8, "clientes": [ ... ] }
-```
+### Reglas de negocio automatizadas (triggers)
 
-Errores:
+- Al **vender una propuesta**, la propuesta pasa a *aceptada*, la oportunidad a *ganada* (etapa 5) y el prospecto a *Cliente activo*.
+- Una propuesta **enviada** mueve la oportunidad a la etapa 3; una **rechazada** la marca *perdida*. *Aceptada* y *rechazada* son estados finales.
+- El **valor de la propuesta** y el **total de la venta** se recalculan solos a partir de sus líneas.
+- Cada producto vendido **descuenta stock** (y falla si no alcanza); cancelar una venta lo **devuelve**.
+- Un **pago** no puede superar el saldo; la venta queda *pagada* cuando los pagos aprobados cubren el total.
+- Cada cambio en clientes, oportunidades, propuestas, ventas y pagos queda en **auditoría** con el usuario que lo hizo.
+- El evento `ev_clasificar_clientes_potenciales` (cada 6 horas) marca como **Potencial** a los prospectos con alta interacción reciente, sin quitarles la categoría *Prospecto*.
 
-```json
-{ "ok": false, "mensaje": "Cliente no encontrado" }
-```
+### Usuarios MySQL (PARTE 8)
 
-## Comprobación directa
+| Usuario | Rol | Permisos |
+| --- | --- | --- |
+| `zimbra_app` / `ZimbraApp#2026` | `rol_zimbra_aplicacion` | Lee todo, ejecuta procedimientos; escribe solo en tablas operativas. No puede borrar ventas ni pagos, ni tocar la auditoría ni el esquema |
+| `zimbra_analista` / `ZimbraAnalista#2026` | `rol_zimbra_reportes` | Solo las vistas y `sp_reporte_ventas_mensual` |
+| `zimbra_auditor` / `ZimbraAuditor#2026` | `rol_zimbra_reportes` + `rol_zimbra_auditoria` | Auditoría y actividad; ve los usuarios **sin** la columna `password` |
 
-Con el backend encendido, en otra terminal:
-
-```powershell
-Invoke-RestMethod http://localhost:3001/api/estado
-Invoke-RestMethod http://localhost:3001/api/clientes
-```
+Las contraseñas son de laboratorio: cámbielas fuera del aula.
 
 ---
 
-# Cómo agregar un recurso nuevo
+## 6. Endpoints de la API
 
-Ejemplo con productos.
+Todas las rutas, salvo las públicas, exigen `Authorization: Bearer <token>` y el permiso indicado (tabla `roles_permisos`).
 
-1. **Modelo** (ya existe): `models/producto.model.js` exporta `Producto`.
-2. **Controlador**: crea `controllers/producto.controller.js`:
+| Método | Ruta | Permiso | Usa en la BD |
+| --- | --- | --- | --- |
+| GET | `/api/estado`, `/api/db` | público | — |
+| POST | `/api/auth/registro`, `/api/auth/login` | público | transacción usuario + rol + configuración |
+| GET | `/api/auth/perfil` | sesión | — |
+| GET/POST | `/api/clientes` | clientes.ver / clientes.crear | trigger de auditoría |
+| GET/PUT/DELETE | `/api/clientes/:id` | clientes.ver / editar / desactivar | |
+| GET/POST | `/api/clientes/prospectos` | prospectos.ver / prospectos.crear | vista `vw_prospectos` (UDF `fn_puntaje_cliente`), transacción |
+| GET | `/api/clientes/:id/actividades` | prospectos.ver | |
+| POST | `/api/clientes/:id/tareas`, `/api/clientes/:id/eventos` | seguimientos.registrar | |
+| GET/POST | `/api/oportunidades` | oportunidades.ver / gestionar | vista `vw_cliente_vendedor_actual` |
+| GET | `/api/productos` | productos.ver | |
+| GET/POST | `/api/propuestas` | propuestas.ver / crear | vista `vw_propuestas_resumen`; triggers de total |
+| GET | `/api/propuestas/:id` | propuestas.ver | |
+| PATCH | `/api/propuestas/:id/estado` | propuestas.aprobar | triggers de estado |
+| POST | `/api/propuestas/:id/venta` | ventas.registrar | **procedimiento** `sp_registrar_venta_desde_propuesta` |
+| GET | `/api/ventas`, `/api/ventas/:id` | ventas.ver | vista `vw_ventas_detalle`, UDF `fn_total_pagado`, `fn_saldo_venta` |
+| POST | `/api/ventas/:id/pagos` | pagos.registrar | **procedimiento** `procesar_pago_venta` |
+| PATCH | `/api/pagos/:idPago/estado` | pagos.registrar | trigger que recalcula la venta |
+| PATCH | `/api/ventas/:id/cancelar` | ventas.registrar | triggers de validación y stock |
+| GET | `/api/vendedores`, `/api/vendedores/:id/clientes` | vendedores.ver | vista `vw_desempeno_vendedores` |
+| GET | `/api/reportes/dashboard?anio=` | reportes.ver | vistas `vw_indicadores_generales`, `vw_ventas_mensuales`, `vw_embudo_oportunidades`, `vw_cartera_pendiente` |
+| GET | `/api/reportes/mensual?anio=&mes=` | reportes.ver | **procedimiento** `sp_reporte_ventas_mensual` (UDF de comisión y conversión) |
+| GET | `/api/reportes/campanas`, `/api/reportes/cartera`, `/api/reportes/anios` | reportes.ver | vistas |
+| GET | `/api/reportes/auditoria` | auditoria.ver | |
+| POST | `/api/transacciones/simular-error/:tipo` | auditoria.ver | **procedimiento** `sp_simular_error` |
 
-```js
-import { Producto } from '../models/producto.model.js'
-import ApiError from '../utils/ApiError.js'
+Los errores de reglas de negocio (`SIGNAL`, `CHECK`, llaves) llegan como `400/409` con un mensaje claro: `{ "ok": false, "mensaje": "El pago de ... supera el saldo pendiente de ..." }`.
 
-export async function listarProductos(req, res) {
-  const productos = await Producto.obtenerTodos()
-  res.json({ ok: true, productos })
-}
+---
 
-export async function obtenerProducto(req, res) {
-  const producto = await Producto.obtenerPorId(req.params.id)
-  if (!producto) throw new ApiError(404, 'Producto no encontrado')
-  res.json({ ok: true, producto })
-}
+## 7. Guion sugerido para la demostración (15 min)
 
-export async function crearProducto(req, res) {
-  const producto = await Producto.crear(req.body)
-  res.status(201).json({ ok: true, producto })
-}
-```
-
-3. **Rutas**: crea `routes/producto.routes.js`:
-
-```js
-import { Router } from 'express'
-import * as productoController from '../controllers/producto.controller.js'
-
-const router = Router()
-
-router.get('/', productoController.listarProductos)
-router.get('/:id', productoController.obtenerProducto)
-router.post('/', productoController.crearProducto)
-
-export default router
-```
-
-4. **Registro**: en `routes/index.js`:
-
-```js
-import productoRouter from './producto.routes.js'
-
-router.use('/api/productos', productoRouter)
-```
-
-5. **Verifica** con `npm run dev` y `Invoke-RestMethod http://localhost:3001/api/productos`.
-
-Si agregaste una tabla nueva a `zimbra.sql`, ejecuta también `npm run db:check` para confirmar que el modelo coincide con el esquema.
+1. **BD:** ejecutar `zimbra.sql` y mostrar el conteo final y las pruebas 9.x.
+2. **Login** como Carlos (vendedor). **Prospectos** → ver seguimiento → registrar una llamada.
+3. **Propuestas** → *Nueva propuesta* → elegir oportunidad, agregar 2 productos → *Guardar y enviar* (el total lo calcula un trigger).
+4. En el detalle → *Registrar venta* (procedimiento): la propuesta queda *aceptada* y la oportunidad *ganada*.
+5. **Ventas** → abono parcial → intentar pagar de más (error del trigger) → pagar el saldo: venta *pagada*.
+6. **Login** como Ana (admin) → **Reportes** → reporte mensual (procedimiento) → *Simulación de errores* (ROLLBACK) → auditoría con el nombre de Carlos.
+7. **Tablero**: indicadores y gráficos sobre las vistas.
+8. **Concurrencia:** `npm run db:concurrencia` o `database/concurrencia.sql` en dos pestañas de Workbench.
+9. **Seguridad:** conectarse como `zimbra_analista` y mostrar el error 1142 al consultar `clientes`.

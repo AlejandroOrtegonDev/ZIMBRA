@@ -34,9 +34,12 @@ const modelos = {
 }
 
 const [columnas] = await pool.query(
-  `SELECT TABLE_NAME AS tabla, COLUMN_NAME AS columna
-   FROM information_schema.COLUMNS
-   WHERE TABLE_SCHEMA = ?`,
+  `SELECT c.TABLE_NAME AS tabla, c.COLUMN_NAME AS columna
+   FROM information_schema.COLUMNS c
+   JOIN information_schema.TABLES t
+     ON t.TABLE_SCHEMA = c.TABLE_SCHEMA AND t.TABLE_NAME = c.TABLE_NAME
+   WHERE c.TABLE_SCHEMA = ?
+     AND t.TABLE_TYPE = 'BASE TABLE'`,
   [process.env.DB_NAME]
 )
 

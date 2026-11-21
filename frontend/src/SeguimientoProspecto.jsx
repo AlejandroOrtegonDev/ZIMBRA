@@ -4,6 +4,7 @@ import {
   obtenerActividades,
   crearTarea,
   crearEvento,
+  tienePermiso,
 } from './services/api'
 
 function SeguimientoProspecto({ prospecto, onCerrar }) {
@@ -134,6 +135,7 @@ function SeguimientoProspecto({ prospecto, onCerrar }) {
       {mensaje && <div className="mensaje-exito">{mensaje}</div>}
       {error && <div className="mensaje-error">{error}</div>}
 
+      {tienePermiso('seguimientos.registrar') && (
       <section className="formulario-contenedor">
         <div className="formulario-titulo">
           <div>
@@ -257,6 +259,7 @@ function SeguimientoProspecto({ prospecto, onCerrar }) {
           </div>
         </form>
       </section>
+      )}
 
       <section className="tabla-contenedor">
         <div className="tabla-encabezado">

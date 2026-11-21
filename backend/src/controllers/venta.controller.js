@@ -1,85 +1,71 @@
+// Ventas y pagos
 
 import * as VentaModel from '../models/venta.model.js'
 import ApiError from '../utils/ApiError.js'
+import { validarId, validarMonto, validarOpcion } from '../utils/validar.js'
 
-// Validar identificadores
-function validarId(id) {
-  const numero = Number(id)
+const METODOS = ['transferencia', 'tarjeta', 'pse', 'efectivo']
 
-  if (!Number.isInteger(numero) || numero <= 0) {
-    throw new ApiError(400, 'El ID no es válido')
-  }
-
-  return numero
-}
-
-// Registrar una venta con sus productos
-export async function registrarVenta(req, res) {
-  const idPropuesta = validarId(req.body.id_propuesta)
-  const { productos } = req.body
-
-  try {
-    const venta = await VentaModel.crearVentaConProductos(
-      idPropuesta,
-      productos,
-    )
-
-    res.status(201).json({
-      ok: true,
-      mensaje: 'Venta registrada e inventario actualizado correctamente',
-      venta,
-    })
-  } catch (error) {
-    const erroresValidacion = [
-      'La propuesta no existe',
-      'La propuesta debe estar aceptada',
-      'Esta propuesta ya tiene una venta registrada',
-      'Debes agregar al menos un producto',
-    ]
-
-    const errorInventario =
-      error.message.includes('Stock insuficiente') ||
-      error.message.includes('no existe o está inactivo')
-
-    if (erroresValidacion.includes(error.message) || errorInventario) {
-      throw new ApiError(400, error.message)
-    }
-
-    throw error
-  }
-}
-
-
- // Listar ventas registradas
 export async function listarVentas(req, res) {
-  const ventas = await VentaModel.obtenerVentas()
+  const estado = req.query.estado
+    ? validarOpcion(req.query.estado, ['pendiente', 'pagada', 'cancelada'], 'Estado')
+    : undefined
+  const ventas = await VentaModel.listar({ estado })
 
-  res.json({
+  res.json({ ok: true, total: ventas.length, ventas })
+}
+
+export async function obtenerVenta(req, res) {
+  const venta = await VentaModel.obtenerDetalle(validarId(req.params.id, 'ID de la venta'))
+
+  if (!venta) throw new ApiError(404, 'Venta no encontrada')
+
+  res.json({ ok: true, venta })
+}
+
+// Llama al procedimiento procesar_pago_venta (transacción + FOR UPDATE)
+export async function registrarPago(req, res) {
+  const id = validarId(req.params.id, 'ID de la venta')
+  const metodo = validarOpcion(req.body.metodo_pago, METODOS, 'Método de pago')
+  const valor = req.body.valor === undefined || req.body.valor === null || req.body.valor === ''
+    ? null
+    : validarMonto(req.body.valor, 'valor del pago')
+
+  const resultado = await VentaModel.registrarPago(id, { metodo_pago: metodo, valor }, req.usuario.id_usuario)
+
+  res.status(201).json({
     ok: true,
-    total: ventas.length,
-    ventas,
+    mensaje: resultado?.estado === 'pagada'
+      ? 'Pago registrado. La venta quedó pagada.'
+      : 'Pago registrado.',
+    resultado,
+    venta: await VentaModel.obtenerDetalle(id),
   })
 }
 
-// Listar propuestas aceptadas sin venta
-export async function listarPropuestasDisponibles(req, res) {
-  const propuestas = await VentaModel.obtenerPropuestasDisponibles()
+export async function cambiarEstadoPago(req, res) {
+  const idPago = validarId(req.params.idPago, 'ID del pago')
+  const estado = validarOpcion(req.body.estado, ['aprobado', 'rechazado'], 'Estado')
+
+  const pago = await VentaModel.cambiarEstadoPago(idPago, estado, req.usuario.id_usuario)
+  if (!pago) throw new ApiError(404, 'Pago no encontrado')
 
   res.json({
     ok: true,
-    total: propuestas.length,
-    propuestas,
+    mensaje: `Pago ${estado}`,
+    venta: await VentaModel.obtenerDetalle(pago.id_venta),
   })
 }
 
-// Listar productos disponibles
-export async function listarProductosDisponibles(req, res) {
-  const productos = await VentaModel.obtenerProductosDisponibles()
+export async function cancelarVenta(req, res) {
+  const id = validarId(req.params.id, 'ID de la venta')
+
+  const cancelada = await VentaModel.cancelar(id, req.usuario.id_usuario)
+  if (!cancelada) throw new ApiError(404, 'Venta no encontrada')
 
   res.json({
     ok: true,
-    total: productos.length,
-    productos,
+    mensaje: 'Venta cancelada; el stock volvió al inventario',
+    venta: await VentaModel.obtenerDetalle(id),
   })
 }
-

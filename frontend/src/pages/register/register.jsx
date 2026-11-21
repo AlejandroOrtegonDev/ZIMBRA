@@ -1,72 +1,127 @@
-import "./register.css";
+import { useState } from 'react'
+import { registrarUsuario } from '../../services/api'
+import './register.css'
 
-// vista del formulario de registro (sin backend todavía)
+// Registro de cuenta nueva. El backend la crea con el rol de solo
+// lectura (user_demo) y devuelve la sesión iniciada.
 export const SignupCardCombined = () => {
-    const manejarEnvio = (evento) => {
-        evento.preventDefault();
-        const datos = Object.fromEntries(new FormData(evento.currentTarget));
-        console.log("Form data:", datos);
-    };
+  const [formulario, setFormulario] = useState({ nombre: '', correo: '', password: '', confirmar: '' })
+  const [error, setError] = useState('')
+  const [guardando, setGuardando] = useState(false)
 
-    return (
-        <section className="registro">
-            <div className="registro-tarjeta">
-                <div className="registro-encabezado">
-                    <div className="registro-titulos">
-                        <h1>Start your free trial</h1>
-                        <p>Sign up in less than 2 minutes.</p>
-                    </div>
-                </div>
+  function cambiarCampo(evento) {
+    const { name, value } = evento.target
+    setFormulario((anterior) => ({ ...anterior, [name]: value }))
+  }
 
-                <form className="registro-formulario" onSubmit={manejarEnvio}>
-                    <div className="registro-campos">
-                        <input
-                            className="registro-input"
-                            name="name"
-                            placeholder="Enter your name"
-                            aria-label="Name"
-                            required
-                        />
-                        <input
-                            className="registro-input"
-                            type="email"
-                            name="email"
-                            placeholder="Enter your email"
-                            aria-label="Email"
-                            required
-                        />
-                        <div className="registro-grupo">
-                            <input
-                                className="registro-input"
-                                type="password"
-                                name="password"
-                                placeholder="Create a password"
-                                aria-label="Password"
-                                minLength={8}
-                                required
-                            />
-                            <p className="registro-ayuda">Must be at least 8 characters.</p>
-                        </div>
-                    </div>
+  async function manejarEnvio(evento) {
+    evento.preventDefault()
+    setError('')
 
-                    <div className="registro-acciones">
-                        <button className="registro-boton" type="submit">
-                            Get started
-                        </button>
-                        <button className="registro-boton registro-boton--social" type="button">
-                            <span className="registro-google" aria-hidden="true">
-                                G
-                            </span>
-                            Sign up with Google
-                        </button>
-                    </div>
-                </form>
+    if (formulario.password !== formulario.confirmar) {
+      setError('Las contraseñas no coinciden')
+      return
+    }
 
-                <div className="registro-pie">
-                    <span>Already have an account?</span>
-                    <a href="#">Log in</a>
-                </div>
-            </div>
-        </section>
-    );
-};
+    try {
+      setGuardando(true)
+      await registrarUsuario({
+        nombre: formulario.nombre.trim(),
+        correo: formulario.correo.trim(),
+        password: formulario.password,
+      })
+      window.location.href = '/'
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <section className="registro">
+      <div className="registro-tarjeta">
+        <div className="registro-encabezado">
+          <div className="registro-logo">Z</div>
+          <div className="registro-titulos">
+            <h1>Crear cuenta</h1>
+            <p>Regístrese para consultar el CRM comercial de Zimbra.</p>
+          </div>
+        </div>
+
+        {error && <div className="registro-error">{error}</div>}
+
+        <form className="registro-formulario" onSubmit={manejarEnvio}>
+          <div className="registro-campos">
+            <label>
+              Nombre completo
+              <input
+                className="registro-input"
+                name="nombre"
+                value={formulario.nombre}
+                onChange={cambiarCampo}
+                placeholder="Su nombre"
+                minLength={3}
+                autoComplete="name"
+                required
+              />
+            </label>
+            <label>
+              Correo electrónico
+              <input
+                className="registro-input"
+                type="email"
+                name="correo"
+                value={formulario.correo}
+                onChange={cambiarCampo}
+                placeholder="correo@empresa.com"
+                autoComplete="email"
+                required
+              />
+            </label>
+            <label>
+              Contraseña
+              <input
+                className="registro-input"
+                type="password"
+                name="password"
+                value={formulario.password}
+                onChange={cambiarCampo}
+                minLength={8}
+                autoComplete="new-password"
+                required
+              />
+              <p className="registro-ayuda">Mínimo 8 caracteres.</p>
+            </label>
+            <label>
+              Confirmar contraseña
+              <input
+                className="registro-input"
+                type="password"
+                name="confirmar"
+                value={formulario.confirmar}
+                onChange={cambiarCampo}
+                minLength={8}
+                autoComplete="new-password"
+                required
+              />
+            </label>
+          </div>
+
+          <button className="registro-boton" type="submit" disabled={guardando}>
+            {guardando ? 'Creando cuenta...' : 'Crear cuenta'}
+          </button>
+        </form>
+
+        <p className="registro-ayuda" style={{ textAlign: 'center' }}>
+          Las cuentas nuevas tienen acceso de solo lectura. Un administrador puede ampliar sus permisos.
+        </p>
+
+        <div className="registro-pie">
+          <span>¿Ya tiene cuenta?</span>
+          <a href="/login">Iniciar sesión</a>
+        </div>
+      </div>
+    </section>
+  )
+}

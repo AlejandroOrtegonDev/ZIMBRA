@@ -6,13 +6,16 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "db:check": "node scripts/verificar_modelos.mjs"
+    "db:check": "node scripts/verificar_modelos.mjs",
+    "db:concurrencia": "node scripts/simular_concurrencia.mjs",
+    "test:api": "node scripts/probar_api.mjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^18.0.9",
     "express": "^5.3.0",
